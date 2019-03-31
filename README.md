@@ -10,9 +10,4 @@ Includes:
 - Updated Health HUD
 - Different Font
 
-   If you do plan on hosting this gamemode on a dedicated server, or shared, whatever I would go here instead so you 
-   can just download it from here and drag and drop.
-
-
-
    I will not be updating this, what you do beyond this point is all you, be creative and have fun :-)
