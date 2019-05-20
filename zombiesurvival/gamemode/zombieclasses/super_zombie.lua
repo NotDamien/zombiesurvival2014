@@ -11,7 +11,6 @@ CLASS.SWEP = "weapon_zs_superzombie"
 CLASS.UsePlayerModel = true
 CLASS.UsePreviousModel = false
 CLASS.NoFallDamage = true
-CLASS.Hidden = true
 
 if SERVER then
 	function CLASS:OnKilled(pl, attacker, inflictor, suicide, headshot, dmginfo) end
@@ -27,7 +26,8 @@ end
 function CLASS:CalcMainActivity(pl, velocity)
 	local wep = pl:GetActiveWeapon()
 	if wep:IsValid() and wep.GetClimbing and wep:GetClimbing() then
-		return ACT_ZOMBIE_CLIMB_UP, -1
+		pl.CalcIdeal = ACT_ZOMBIE_CLIMB_UP
+		return true
 	end
 
 	return self.BaseClass.CalcMainActivity(self, pl, velocity)

@@ -9,26 +9,22 @@ CLASS.Wave = 1 / 3
 
 CLASS.SWEP = "weapon_zs_fastheadcrab"
 
-CLASS.Health = 35
-CLASS.Speed = 260
+CLASS.Health = 30
+CLASS.Speed = 230
 CLASS.JumpPower = 100
 
 CLASS.NoFallDamage = true
 CLASS.NoFallSlowdown = true
 
 CLASS.Points = 3
-CLASS.ZTraits = {
-	["25hlth"] = {safename = "+25% Health", cost = 400},
-	["lunge"] = {safename = "Lunge", cost = 125, desc = "Increases jump range"},
-	["sbeak"] = {safename = "Sharp Beak", cost = 150, desc = "Increases damage by 3"},
-}
+
 CLASS.Hull = {Vector(-12, -12, 0), Vector(12, 12, 18.1)}
 CLASS.HullDuck = {Vector(-12, -12, 0), Vector(12, 12, 18.1)}
 CLASS.ViewOffset = Vector(0, 0, 10)
 CLASS.ViewOffsetDucked = Vector(0, 0, 10)
 CLASS.StepSize = 8
 CLASS.CrouchedWalkSpeed = 1
-CLASS.Mass = 24 -- from 16
+CLASS.Mass = 16
 
 CLASS.CantDuck = true
 
@@ -54,18 +50,18 @@ end
 
 function CLASS:CalcMainActivity(pl, velocity)
 	if pl:OnGround() then
-		if velocity:Length2DSqr() > 1 then
-			return ACT_RUN, -1
+		if velocity:Length2D() > 0.5 then
+			pl.CalcIdeal = ACT_RUN
+		else
+			pl.CalcSeqOverride = 1
 		end
-
-		return 1, 1
+	elseif pl:WaterLevel() >= 3 then
+		pl.CalcSeqOverride = 6
+	else
+		pl.CalcSeqOverride = 3
 	end
 
-	if pl:WaterLevel() >= 3 then
-		return 1, 6
-	end
-
-	return 1, 3
+	return true
 end
 
 function CLASS:UpdateAnimation(pl, velocity, maxseqgroundspeed)

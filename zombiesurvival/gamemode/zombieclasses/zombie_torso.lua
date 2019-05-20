@@ -12,10 +12,10 @@ CLASS.Unlocked = true
 CLASS.Hidden = true
 
 CLASS.Health = 100
-CLASS.Speed = 180
+CLASS.Speed = 130
 CLASS.JumpPower = 120
 
-CLASS.Points = 2
+CLASS.Points = 1
 
 CLASS.Hull = {Vector(-16, -16, 0), Vector(16, 16, 20)}
 CLASS.HullDuck = {Vector(-16, -16, 0), Vector(16, 16, 20)}
@@ -33,11 +33,13 @@ CLASS.DeathSounds = {"npc/zombie/zombie_die1.wav", "npc/zombie/zombie_die2.wav",
 CLASS.VoicePitch = 0.65
 
 function CLASS:CalcMainActivity(pl, velocity)
-	if velocity:Length2DSqr() <= 1 then
-		return 1, 1
+	if velocity:Length2D() <= 0.5 then
+		pl.CalcSeqOverride = 1
+	else
+		pl.CalcIdeal = ACT_WALK
 	end
 
-	return ACT_WALK, -1
+	return true
 end
 
 local mathrandom = math.random

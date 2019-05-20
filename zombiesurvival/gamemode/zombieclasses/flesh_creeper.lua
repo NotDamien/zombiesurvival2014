@@ -6,18 +6,13 @@ CLASS.Help = "controls_flesh_creeper"
 CLASS.Wave = 0
 CLASS.Hidden = true
 CLASS.Unlocked = true
-CLASS.Health = 250
+CLASS.Health = 100
 CLASS.SWEP = "weapon_zs_fleshcreeper"
 CLASS.Model = Model("models/antlion.mdl")
 CLASS.Speed = 175
-CLASS.JumpPower = 450
+CLASS.JumpPower = 220
 
-CLASS.ZTraits = {
-	["10spd"] = {safename = "+10% Speed", cost = 50},
-	--["tiny"] = {safename = "Tiny Mutation", cost = 80, desc = "Reduces size"},
-}
-
-CLASS.Points = 3
+CLASS.Points = 4
 
 CLASS.VoicePitch = 0.55
 
@@ -66,30 +61,27 @@ function CLASS:CalcMainActivity(pl, velocity)
 	local wep = pl:GetActiveWeapon()
 	if wep:IsValid() and wep.IsInAttackAnim then
 		if wep:IsInAttackAnim() then
-			return 1, 14
-		end
-
-		if wep:GetHoldingRightClick() then
-			return 1, 21
+			pl.CalcSeqOverride = 14
+			return true
+		elseif wep:GetHoldingRightClick() then
+			pl.CalcSeqOverride = 21
+			return true
 		end
 	end
 
-	if wep.IsPouncing and wep:IsPouncing() then
-		return ACT_GLIDE, -1
-	end
-
-	if velocity:Length2DSqr() > 1 then
+	if velocity:Length2D() > 0.5 then
 		--[[if pl:Crouching() and pl:OnGround() then
-			return 1, 17
+			pl.CalcSeqOverride = 17
 		else]]
-			return 1, 4
+			pl.CalcSeqOverride = 4
 		--[[end
 	elseif pl:Crouching() and pl:OnGround() then
 		pl.CalcSeqOverride = 40]]
+	else
+		pl.CalcSeqOverride = 2
 	end
 
-
-	return 1, 2
+	return true
 end
 
 function CLASS:UpdateAnimation(pl, velocity, maxseqgroundspeed)
@@ -190,6 +182,7 @@ end
 
 if not CLIENT then return end
 
+--CLASS.Icon = "zombiesurvival/killicons/flesh_creeper"
 
 local matFlesh = Material("models/flesh")
 function CLASS:PrePlayerDraw(pl)

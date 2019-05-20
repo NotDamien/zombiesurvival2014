@@ -3,22 +3,16 @@ CLASS.TranslationName = "class_bloated_zombie"
 CLASS.Description = "description_bloated_zombie"
 CLASS.Help = "controls_bloated_zombie"
 
-CLASS.Wave = 3 / 6
+CLASS.Wave = 3 / 8
 
-CLASS.Health = 1000
-CLASS.Speed = 140
---CLASS.JumpPower = 225
---CLASS.Mass = DEFAULT_MASS * 2
+CLASS.Health = 450
+CLASS.Speed = 133
+CLASS.JumpPower = 150
+CLASS.Mass = DEFAULT_MASS * 2
 
 CLASS.CanTaunt = true
 
-CLASS.Points = 7
-
-CLASS.ZTraits = {
-	["25hlth"] = {safename = "+25% Health", cost = 150},
-	["bloatbomb"] = {safename = "Bile Bomb", cost = 100, desc = "Increase amount of poison particles on death"},
-	["acidic"] = {safename = "Acidic Poison", cost = 150, desc = "Increase damage of poison particles"},
-}
+CLASS.Points = 8
 
 CLASS.SWEP = "weapon_zs_bloatedzombie"
 
@@ -50,7 +44,6 @@ sound.Add({
     sound = {"npc/zombie/foot_slide1.wav", "npc/zombie/foot_slide2.wav", "npc/zombie/foot_slide3.wav"}
 })
 
-local math_ceil = math.ceil
 local DIR_BACK = DIR_BACK
 local ACT_HL2MP_ZOMBIE_SLUMP_RISE = ACT_HL2MP_ZOMBIE_SLUMP_RISE
 local ACT_HL2MP_SWIM_PISTOL = ACT_HL2MP_SWIM_PISTOL
@@ -89,25 +82,27 @@ function CLASS:CalcMainActivity(pl, velocity)
 	local feign = pl.FeignDeath
 	if feign and feign:IsValid() then
 		if feign:GetDirection() == DIR_BACK then
-			return 1, pl:LookupSequence("zombie_slump_rise_02_fast")
+			pl.CalcSeqOverride = pl:LookupSequence("zombie_slump_rise_02_fast")
+		else
+			pl.CalcIdeal = ACT_HL2MP_ZOMBIE_SLUMP_RISE
 		end
 
-		return ACT_HL2MP_ZOMBIE_SLUMP_RISE, -1
+		return true
 	end
 
 	if pl:WaterLevel() >= 3 then
-		return ACT_HL2MP_SWIM_PISTOL, -1
-	end
-
-	if pl:Crouching() and pl:OnGround() then
-		if velocity:Length2DSqr() <= 1 then
-			return ACT_HL2MP_IDLE_CROUCH_ZOMBIE, -1
+		pl.CalcIdeal = ACT_HL2MP_SWIM_PISTOL
+	elseif pl:Crouching() then
+		if velocity:Length2D() <= 0.5 then
+			pl.CalcIdeal = ACT_HL2MP_IDLE_CROUCH_ZOMBIE
+		else
+			pl.CalcIdeal = ACT_HL2MP_WALK_CROUCH_ZOMBIE_01 - 1 + math.ceil((CurTime() / 4 + pl:EntIndex()) % 3)
 		end
-
-		return ACT_HL2MP_WALK_CROUCH_ZOMBIE_01 - 1 + math_ceil((CurTime() / 4 + pl:EntIndex()) % 3), -1
+	else
+		pl.CalcIdeal = ACT_HL2MP_RUN_ZOMBIE
 	end
 
-	return ACT_HL2MP_RUN_ZOMBIE, -1
+	return true
 end
 
 function CLASS:UpdateAnimation(pl, velocity, maxseqgroundspeed)
@@ -158,17 +153,7 @@ if SERVER then
 			effectdata:SetNormal(dir:Forward())
 		util.Effect("fatexplosion", effectdata, true)
 
-		local amt = 6
-		if pl:GetZTraitCurrent("bloatbomb") then
-			amt = amt * 2
-		end
-
-		local bAddDmg = false
-		if pl:GetZTraitCurrent("acidic") then
-			bAddDmg = true
-		end
-
-		for i=1, amt do
+		for i=1, 10 do -- buffed to 8 from 6.
 			local ang = Angle()
 			ang:Set(dir)
 			ang:RotateAroundAxis(ang:Up(), math.Rand(-30, 30))
@@ -180,11 +165,8 @@ if SERVER then
 			if ent:IsValid() then
 				ent:SetPos(pos)
 				ent:SetOwner(pl)
-				if bAddDmg then
-					ent.Damage = ent.Damage + 3
-				end
 				ent:Spawn()
-
+				ent:SetTeamID(TEAM_UNDEAD)
 				local phys = ent:GetPhysicsObject()
 				if phys:IsValid() then
 					phys:Wake()
@@ -203,4 +185,6 @@ if SERVER then
 	end
 end
 
-
+if CLIENT then
+	CLASS.Icon = "zombiesurvival/killicons/zombie"
+end

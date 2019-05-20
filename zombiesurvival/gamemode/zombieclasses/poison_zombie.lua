@@ -5,17 +5,15 @@ CLASS.Help = "controls_poison_zombie"
 
 CLASS.Model = Model("models/Zombie/Poison.mdl")
 
-CLASS.Wave = 2 / 3
+CLASS.Wave = 4 / 6
 
-CLASS.Health = 1800
-CLASS.Speed = 200
+CLASS.Health = 750
+CLASS.Speed = 150
 CLASS.SWEP = "weapon_zs_poisonzombie"
 
 CLASS.Mass = DEFAULT_MASS * 1.5
 
-
-
-CLASS.Points = 6
+CLASS.Points = 8
 
 CLASS.PainSounds = {"NPC_PoisonZombie.Pain"}
 CLASS.DeathSounds = {"NPC_PoisonZombie.Die"}
@@ -26,13 +24,14 @@ CLASS.Hull = {Vector(-16, -16, 0), Vector(16, 16, 64)}
 CLASS.HullDuck = {Vector(-16, -16, 0), Vector(16, 16, 35)}
 
 function CLASS:CalcMainActivity(pl, velocity)
-	if velocity:Length2DSqr() <= 1 then
-		return ACT_IDLE, -1
+	if velocity:Length2D() <= 0.5 then
+		pl.CalcIdeal = ACT_IDLE
+	else
+		pl.CalcIdeal = ACT_WALK
 	end
 
-	return ACT_WALK, -1
+	return true
 end
-
 
 local mathrandom = math.random
 function CLASS:PlayerFootstep(pl, vFootPos, iFoot, strSoundName, fVolume, pFilter)
@@ -67,21 +66,6 @@ end
 function CLASS:UpdateAnimation(pl, velocity, maxseqgroundspeed)
 	pl:FixModelAngles(velocity)
 end
-
-if SERVER then
-	function CLASS:OnSpawned(pl)
-		if pl:IsBot() then
-			pl:SetBodygroup( 1, 1 )
-		end
-	end
-	
-	function CLASS:OnKilled(pl, attacker, inflictor, suicide, headshot, dmginfo, assister)
-		if pl:IsBot() then
-			pl:SetBodygroup( 1, 0 )
-		end
-	end
-end
-
 
 if not CLIENT then return end
 

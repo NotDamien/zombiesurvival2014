@@ -4,17 +4,12 @@ CLASS.Description = "description_wraith"
 CLASS.Help = "controls_wraith"
 
 CLASS.Wave = 1 / 3
-CLASS.Health = 350
+CLASS.Health = 125
 CLASS.SWEP = "weapon_zs_wraith"
-CLASS.Model = Model("models/player/skeleton.mdl")
-CLASS.Speed = 220
+CLASS.Model = Model("models/wraith_zsv1.mdl")
+CLASS.Speed = 190
 
-CLASS.ZTraits = {
-	["10spd"] = {safename = "+10% Speed", cost = 200},
-	--["mach5"] = {safename = "Mach 5", cost = 300, desc = "Increases force of props hit"}
-}
-
-CLASS.Points = 5
+CLASS.Points = 6
 
 CLASS.VoicePitch = 0.65
 
@@ -25,88 +20,64 @@ CLASS.NoShadow = true
 
 --CLASS.GhostSpeed = 35
 
-CLASS.RenderMode = RENDERMODE_TRANSALPHA -- Prevents flashlight shadows
-
-
-local math_min = math.min
-local math_Clamp = math.Clamp
-local IN_SPEED = IN_SPEED
-local ACT_HL2MP_SWIM_PISTOL = ACT_HL2MP_SWIM_PISTOL
-local ACT_HL2MP_IDLE_CROUCH_FIST = ACT_HL2MP_IDLE_CROUCH_FIST
-local ACT_HL2MP_IDLE_KNIFE = ACT_HL2MP_IDLE_KNIFE
-local ACT_HL2MP_WALK_CROUCH_KNIFE = ACT_HL2MP_WALK_CROUCH_KNIFE
-local ACT_HL2MP_WALK_KNIFE = ACT_HL2MP_WALK_KNIFE
-local ACT_HL2MP_RUN_KNIFE = ACT_HL2MP_RUN_KNIFE
-local PLAYERANIMEVENT_ATTACK_PRIMARY = PLAYERANIMEVENT_ATTACK_PRIMARY
-local GESTURE_SLOT_ATTACK_AND_RELOAD = GESTURE_SLOT_ATTACK_AND_RELOAD
-local ACT_GMOD_GESTURE_RANGE_ZOMBIE_SPECIAL = ACT_GMOD_GESTURE_RANGE_ZOMBIE_SPECIAL
-local ACT_GMOD_GESTURE_TAUNT_ZOMBIE = ACT_GMOD_GESTURE_TAUNT_ZOMBIE
-local ACT_INVALID = ACT_INVALID
-
 function CLASS:Move(pl, move)
+	--[[if pl:GetBarricadeGhosting() then
+		move:SetMaxSpeed(self.GhostSpeed)
+		move:SetMaxClientSpeed(self.GhostSpeed)
+	end]]
+
 	if pl:KeyDown(IN_SPEED) then
-		move:SetMaxSpeed(40)
-		move:SetMaxClientSpeed(40)
+		move:SetMaxSpeed(50)
+		move:SetMaxClientSpeed(50)
 	end
 end
+
+--[[function CLASS:GetJumpPower(pl)
+	return pl:IsBarricadeGhosting() and 0 or DEFAULT_JUMP_POWER
+end
+
+function CLASS:SwitchedAway(pl)
+	pl:SetBarricadeGhosting(false)
+end]]
 
 function CLASS:CalcMainActivity(pl, velocity)
-	if pl:WaterLevel() >= 3 then
-		return ACT_HL2MP_SWIM_PISTOL, -1
-	end
-
-	if pl:WaterLevel() >= 3 then
-		return ACT_HL2MP_SWIM_PISTOL, -1
-	end
-
-	local len = velocity:Length2DSqr()
-	if len <= 1 then
-		if pl:Crouching() and pl:OnGround() then
-			return ACT_HL2MP_IDLE_CROUCH_FIST, -1
-		end
-
-		return ACT_HL2MP_IDLE_KNIFE, -1
-	end
-
-	if pl:Crouching() and pl:OnGround() then
-		return ACT_HL2MP_WALK_CROUCH_KNIFE, -1
-	end
-
-	if len < 2800 then
-		return ACT_HL2MP_WALK_KNIFE, -1
-	end
-
-	return ACT_HL2MP_RUN_KNIFE, -1
-end
-
-function CLASS:UpdateAnimation(pl, velocity, maxseqgroundspeed)
-	local len2d = velocity:Length()
-	if len2d > 1 then
-		pl:SetPlaybackRate(math_min(len2d / maxseqgroundspeed, 3))
+	local wep = pl:GetActiveWeapon()
+	if wep:IsValid() and wep.IsAttacking and wep:IsAttacking() then
+		pl.CalcSeqOverride = 10
+	elseif velocity:Length2D() > 0.5 then
+		pl.CalcSeqOverride = 3
 	else
-		pl:SetPlaybackRate(1)
+		pl.CalcSeqOverride = 1
 	end
 
 	return true
 end
-
-function CLASS:DoAnimationEvent(pl, event, data)
-	if event == PLAYERANIMEVENT_ATTACK_PRIMARY then
-		pl:AnimRestartGesture(GESTURE_SLOT_ATTACK_AND_RELOAD, ACT_GMOD_GESTURE_RANGE_ZOMBIE_SPECIAL, true)
-		return ACT_INVALID
-	elseif event == PLAYERANIMEVENT_RELOAD then
-		pl:AnimRestartGesture(GESTURE_SLOT_ATTACK_AND_RELOAD, ACT_GMOD_GESTURE_TAUNT_ZOMBIE, true)
-		return ACT_INVALID
-	end
-end
-
---[[function CLASS:ScalePlayerDamage(pl, hitgroup, dmginfo)
-	-- The Wraith model doesn't have hitboxes.
-	return true
-end]]
 
 function CLASS:PlayerFootstep(pl, vFootPos, iFoot, strSoundName, fVolume, pFilter)
 	return true
+end
+
+function CLASS:ScalePlayerDamage(pl, hitgroup, dmginfo)
+	--[[if pl:IsBarricadeGhosting() then
+		dmginfo:SetDamage(dmginfo:GetDamage() * 1.5)
+	end]]
+
+	-- The Wraith model doesn't have hitboxes.
+	return true
+end
+
+function CLASS:UpdateAnimation(pl, velocity, maxseqgroundspeed)
+	pl:FixModelAngles(velocity)
+
+	local seq = pl:GetSequence()
+	if seq == 10 then
+		if not pl.m_PrevFrameCycle then
+			pl.m_PrevFrameCycle = true
+			pl:SetCycle(0)
+		end
+	elseif pl.m_PrevFrameCycle then
+		pl.m_PrevFrameCycle = nil
+	end
 end
 
 function CLASS:GetAlpha(pl)
@@ -115,29 +86,25 @@ function CLASS:GetAlpha(pl)
 
 	if wep:IsValid() and wep:IsAttacking() then
 		return 0.7
+	elseif MySelf:IsValid() and MySelf:Team() == TEAM_UNDEAD then
+		local eyepos = EyePos()
+		return math.Clamp(pl:GetVelocity():Length() - pl:NearestPoint(eyepos):Distance(eyepos) * 0.5, 35, 180) / 255
+	else
+		local eyepos = EyePos()
+		return math.Clamp(pl:GetVelocity():Length() - pl:NearestPoint(eyepos):Distance(eyepos) * 0.5, 0, 180) / 255
+	end
+end
+
+function CLASS:OnKilled(pl, attacker, inflictor, suicide, headshot, dmginfo, assister)
+	if SERVER then
+		local effectdata = EffectData()
+			effectdata:SetOrigin(pl:GetPos())
+			effectdata:SetNormal(pl:GetForward())
+			effectdata:SetEntity(pl)
+		util.Effect("wraithdeath", effectdata, nil, true)
 	end
 
-	local eyepos = EyePos()
-	local nearest = pl:WorldSpaceCenter()
-	local norm = nearest - eyepos
-	norm:Normalize()
-	local dot = EyeVector():Dot(norm)
-
-	local vis = (dot * 0.4 + pl:GetVelocity():Length() / self.Speed / 2 - eyepos:Distance(nearest) / 400) * dot
-
-	return math_Clamp(vis, MySelf:IsValid() and MySelf:Team() == TEAM_UNDEAD and 0.137 or 0, 0.7)
-end
-
-if SERVER then
-function CLASS:OnKilled(pl, attacker, inflictor, suicide, headshot, dmginfo, assister)
-	local effectdata = EffectData()
-		effectdata:SetOrigin(pl:GetPos())
-		effectdata:SetNormal(pl:GetForward())
-		effectdata:SetEntity(pl)
-	util.Effect("death_wraith", effectdata, nil, true)
-
 	return true
-end
 end
 
 if not CLIENT then return end
@@ -145,18 +112,21 @@ if not CLIENT then return end
 CLASS.Icon = "zombiesurvival/killicons/wraithv2"
 
 function CLASS:PrePlayerDraw(pl)
-	--pl:RemoveAllDecals()
+	pl:RemoveAllDecals()
 
-	local alpha = self:GetAlpha(pl)
-	if alpha == 0 then return true end
+	--[[if pl:GetBarricadeGhosting() then
+		render.SetBlend(0.7)
+		render.SetColorModulation(1, 1, 5)
+	else]]
+		local alpha = self:GetAlpha(pl)
+		if alpha == 0 then return true end
 
-	render.SetBlend(alpha)
-	render.SetColorModulation(0.025, 0.025, 0.1)
-	render.SuppressEngineLighting(true)
+		render.SetBlend(alpha)
+		render.SetColorModulation(0.3, 0.3, 0.3)
+	--end
 end
 
 function CLASS:PostPlayerDraw(pl)
-	render.SuppressEngineLighting(false)
 	render.SetColorModulation(1, 1, 1)
 	render.SetBlend(1)
 end

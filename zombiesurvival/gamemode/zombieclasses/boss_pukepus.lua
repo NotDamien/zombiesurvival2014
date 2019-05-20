@@ -11,29 +11,24 @@ CLASS.Boss = true
 
 CLASS.FearPerInstance = 1
 
-CLASS.Health = 3280
+CLASS.Health = 5500
 CLASS.SWEP = "weapon_zs_pukepus"
 
 CLASS.Model = Model("models/Zombie/Poison.mdl")
 
-CLASS.Speed = 140
-CLASS.Points = 70
+CLASS.Speed = 120
+CLASS.Points = 100
 
 CLASS.PainSounds = {"NPC_PoisonZombie.Pain"}
 CLASS.DeathSounds = {Sound("npc/zombie_poison/pz_call1.wav")}
 
 CLASS.VoicePitch = 0.5
-function CLASS:ProcessDamage(pl, dmginfo)
-	if dmginfo:GetInflictor().IsMelee then
-		dmginfo:SetDamage(dmginfo:GetDamage() / 4)
-	end
-end
 
-CLASS.ModelScale = 1
+CLASS.ModelScale = 1.5
 CLASS.Mass = 200
---CLASS.ViewOffset = Vector(0, 0, 75)
---CLASS.ViewOffsetDucked = Vector(0, 0, 48)
---CLASS.StepSize = 25
+CLASS.ViewOffset = Vector(0, 0, 75)
+CLASS.ViewOffsetDucked = Vector(0, 0, 48)
+CLASS.StepSize = 25
 --[[CLASS.Hull = {Vector(-22, -22, 0), Vector(22, 22, 96)}
 CLASS.HullDuck = {Vector(-22, -22, 0), Vector(22, 22, 58)}]]
 
@@ -46,11 +41,13 @@ local STEPSOUNDTIME_ON_LADDER = STEPSOUNDTIME_ON_LADDER
 local STEPSOUNDTIME_WATER_KNEE = STEPSOUNDTIME_WATER_KNEE
 
 function CLASS:CalcMainActivity(pl, velocity)
-	if velocity:Length2DSqr() <= 1 then
-		return ACT_IDLE, -1
+	if velocity:Length2D() <= 0.5 then
+		pl.CalcIdeal = ACT_IDLE
+	else
+		pl.CalcSeqOverride = 2
 	end
 
-	return 1, 2
+	return true
 end
 
 local mathrandom = math.random

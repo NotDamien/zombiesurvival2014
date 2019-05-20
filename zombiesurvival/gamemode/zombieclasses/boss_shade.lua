@@ -1,3 +1,4 @@
+-- DISABLED FOR NOW.
 CLASS.Name = "Shade"
 CLASS.TranslationName = "class_shade"
 CLASS.Description = "description_shade"
@@ -5,9 +6,9 @@ CLASS.Help = "controls_shade"
 
 CLASS.Wave = 0
 CLASS.Threshold = 0
-CLASS.Unlocked = true
+CLASS.Unlocked = true 
 CLASS.Hidden = true
-CLASS.Boss = true
+CLASS.Boss = false
 
 CLASS.NoGibs = true
 CLASS.NoFallDamage = true
@@ -15,12 +16,12 @@ CLASS.NoFallSlowdown = true
 
 CLASS.NoShadow = true
 
-CLASS.Health = 4600
-CLASS.Speed = 140
+CLASS.Health = 1200
+CLASS.Speed = 125
 
 CLASS.FearPerInstance = 1
 
-CLASS.Points = 70
+CLASS.Points = 30
 
 CLASS.SWEP = "weapon_zs_shade"
 
@@ -44,15 +45,19 @@ function CLASS:PlayerStepSoundTime(pl, iType, bWalking)
 end
 
 function CLASS:CalcMainActivity(pl, velocity)
-	if (pl.ShadeControl and pl.ShadeControl:IsValid()) or (pl.ShadeShield and pl.ShadeShield:IsValid()) then
-		if velocity:Length2DSqr() <= 1 then
-			return ACT_HL2MP_IDLE_MAGIC, -1
+	if pl.ShadeControl and pl.ShadeControl:IsValid() then
+		if velocity:Length2D() <= 0.5 then
+			pl.CalcIdeal = ACT_HL2MP_IDLE_MAGIC
+		else
+			pl.CalcIdeal = ACT_HL2MP_RUN_MAGIC
 		end
 
-		return ACT_HL2MP_RUN_MAGIC, -1
+		return true
 	end
 
-	return ACT_HL2MP_RUN_ZOMBIE, -1
+	pl.CalcIdeal = ACT_HL2MP_RUN_ZOMBIE
+
+	return true
 end
 
 function CLASS:DoAnimationEvent(pl, event, data)
@@ -110,7 +115,7 @@ end
 
 if not CLIENT then return end
 
-
+--CLASS.Icon = "zombiesurvival/killicons/shade"
 
 local ToZero = {"ValveBiped.Bip01_L_Thigh", "ValveBiped.Bip01_R_Thigh", "ValveBiped.Bip01_L_Calf", "ValveBiped.Bip01_R_Calf", "ValveBiped.Bip01_L_Foot", "ValveBiped.Bip01_R_Foot"}
 function CLASS:BuildBonePositions(pl)

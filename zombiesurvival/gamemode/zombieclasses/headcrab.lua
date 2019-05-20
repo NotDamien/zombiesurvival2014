@@ -10,33 +10,9 @@ CLASS.Unlocked = true
 
 CLASS.SWEP = "weapon_zs_headcrab"
 
-CLASS.Health = 60
+CLASS.Health = 40
 CLASS.Speed = 160
 CLASS.JumpPower = 100
-
-local function SpawnAlphaHeadcrab(ply)
-	if SERVER then --all local functions here should start with this
-		local oldclass = ply.DeathClass or ply:GetZombieClass()
-		local fclass = GAMEMODE.ZombieClasses["Alpha Headcrab"]
-		ply:KillSilent()
-		ply:SetZombieClassName("Alpha Headcrab")
-		ply.DeathClass = nil
-		ply:DoHulls(fclass.Index, TEAM_UNDEAD)
-		ply:UnSpectateAndSpawn()
-		ply.DeathClass = oldclass
-	end
-end
-
-CLASS.ZTraits = {
-	--["1000hlth"] = {},
-	--["25spd"] = {},
-	["10spd"] = {safename = "+10% speed", cost = 200},
-	["sbeak"] = {safename = "Sharp Beak", cost = 150, desc = "Increases damage by 3"},
-	--["alpha"] = {safename = "Alpha Headcrab", cost = 1000, callback = SpawnAlphaHeadcrab, temp = true},
-
-}
-
-
 
 CLASS.NoFallDamage = true
 CLASS.NoFallSlowdown = true
@@ -78,26 +54,27 @@ function CLASS:CalcMainActivity(pl, velocity)
 	if wep:IsValid() and wep.GetBurrowTime then
 		local time = wep:GetBurrowTime()
 		if time > 0 then
-			return 1, 11
-		end
-		if time < 0 then
-			return 1, 10
+			pl.CalcSeqOverride = 11
+			return true
+		elseif time < 0 then
+			pl.CalcSeqOverride = 10
+			return true
 		end
 	end
 
 	if pl:OnGround() then
-		if velocity:Length2DSqr() > 1 then
-			return ACT_RUN, -1
+		if velocity:Length2D() > 0.5 then
+			pl.CalcIdeal = ACT_RUN
+		else
+			pl.CalcSeqOverride = 1
 		end
-
-		return 1, 1
+	elseif pl:WaterLevel() >= 3 then
+		pl.CalcSeqOverride = 6
+	else
+		pl.CalcSeqOverride = 5
 	end
 
-	if pl:WaterLevel() >= 3 then
-		return 1, 6
-	end
-
-	return 1, 5
+	return true
 end
 
 function CLASS:UpdateAnimation(pl, velocity, maxseqgroundspeed)

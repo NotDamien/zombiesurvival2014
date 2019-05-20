@@ -7,10 +7,10 @@ CLASS.Wave = 0
 CLASS.Unlocked = true
 CLASS.Hidden = true
 
-CLASS.Health = 200
-CLASS.Speed = 190
+CLASS.Health = 125
+CLASS.Speed = 200
 
-CLASS.Points = 5
+CLASS.Points = 3
 
 CLASS.CanTaunt = true
 
@@ -25,61 +25,88 @@ CLASS.VoicePitch = 0.65
 
 CLASS.CanFeignDeath = true
 
-local math_min = math.min
-local math_Clamp = math.Clamp
-local IN_SPEED = IN_SPEED
-local ACT_HL2MP_SWIM_PISTOL = ACT_HL2MP_SWIM_PISTOL
-local ACT_HL2MP_IDLE_CROUCH_FIST = ACT_HL2MP_IDLE_CROUCH_FIST
-local ACT_HL2MP_IDLE_KNIFE = ACT_HL2MP_IDLE_KNIFE
-local ACT_HL2MP_WALK_CROUCH_KNIFE = ACT_HL2MP_WALK_CROUCH_KNIFE
-local ACT_HL2MP_WALK_KNIFE = ACT_HL2MP_WALK_KNIFE
-local ACT_HL2MP_RUN_KNIFE = ACT_HL2MP_RUN_KNIFE
-local PLAYERANIMEVENT_ATTACK_PRIMARY = PLAYERANIMEVENT_ATTACK_PRIMARY
-local GESTURE_SLOT_ATTACK_AND_RELOAD = GESTURE_SLOT_ATTACK_AND_RELOAD
-local ACT_GMOD_GESTURE_RANGE_ZOMBIE_SPECIAL = ACT_GMOD_GESTURE_RANGE_ZOMBIE_SPECIAL
-local ACT_GMOD_GESTURE_TAUNT_ZOMBIE = ACT_GMOD_GESTURE_TAUNT_ZOMBIE
-local ACT_INVALID = ACT_INVALID
-
-function CLASS:Move(pl, move)
-	if pl:KeyDown(IN_SPEED) then
-		move:SetMaxSpeed(40)
-		move:SetMaxClientSpeed(40)
+local mathrandom = math.random
+local StepLeftSounds = {
+	"npc/zombie/foot1.wav",
+	"npc/zombie/foot2.wav"
+}
+local StepRightSounds = {
+	"npc/zombie/foot2.wav",
+	"npc/zombie/foot3.wav"
+}
+function CLASS:PlayerFootstep(pl, vFootPos, iFoot, strSoundName, fVolume, pFilter)
+	if iFoot == 0 then
+		pl:EmitSound(StepLeftSounds[mathrandom(#StepLeftSounds)], 70)
+	else
+		pl:EmitSound(StepRightSounds[mathrandom(#StepRightSounds)], 70)
 	end
+
+	return true
 end
+--[[function CLASS:PlayerFootstep(pl, vFootPos, iFoot, strSoundName, fVolume, pFilter)
+	if iFoot == 0 then
+		pl:EmitSound("Zombie.FootstepLeft")
+	else
+		pl:EmitSound("Zombie.FootstepRight")
+	end
+
+	return true
+end]]
 
 function CLASS:CalcMainActivity(pl, velocity)
-	if pl:WaterLevel() >= 3 then
-		return ACT_HL2MP_SWIM_PISTOL, -1
+	local revive = pl.Revive
+	if revive and revive:IsValid() then
+		pl.CalcIdeal = ACT_HL2MP_ZOMBIE_SLUMP_RISE
+		return true
 	end
 
-	if pl:WaterLevel() >= 3 then
-		return ACT_HL2MP_SWIM_PISTOL, -1
-	end
-
-	local len = velocity:Length2DSqr()
-	if len <= 1 then
-		if pl:Crouching() and pl:OnGround() then
-			return ACT_HL2MP_IDLE_CROUCH_FIST, -1
+	local feign = pl.FeignDeath
+	if feign and feign:IsValid() then
+		if feign:GetDirection() == DIR_BACK then
+			pl.CalcSeqOverride = pl:LookupSequence("zombie_slump_rise_02_fast")
+		else
+			pl.CalcIdeal = ACT_HL2MP_ZOMBIE_SLUMP_RISE
 		end
-
-		return ACT_HL2MP_IDLE_KNIFE, -1
+		return true
 	end
 
-	if pl:Crouching() and pl:OnGround() then
-		return ACT_HL2MP_WALK_CROUCH_KNIFE, -1
+	if pl:WaterLevel() >= 3 then
+		pl.CalcIdeal = ACT_HL2MP_SWIM_PISTOL
+	elseif pl:Crouching() then
+		if velocity:Length2D() <= 0.5 then
+			pl.CalcIdeal = ACT_HL2MP_IDLE_CROUCH_ZOMBIE
+		else
+			pl.CalcIdeal = ACT_HL2MP_WALK_CROUCH_ZOMBIE_01 - 1 + math.ceil((CurTime() / 4 + pl:EntIndex()) % 3)
+		end
+	else
+		pl.CalcIdeal = ACT_HL2MP_RUN_ZOMBIE
 	end
 
-	if len < 2800 then
-		return ACT_HL2MP_WALK_KNIFE, -1
-	end
-
-	return ACT_HL2MP_RUN_KNIFE, -1
+	return true
 end
 
 function CLASS:UpdateAnimation(pl, velocity, maxseqgroundspeed)
-	local len2d = velocity:Length()
-	if len2d > 1 then
-		pl:SetPlaybackRate(math_min(len2d / maxseqgroundspeed, 3))
+	local revive = pl.Revive
+	if revive and revive:IsValid() then
+		pl:SetCycle(0.4 + (1 - math.Clamp((revive:GetReviveTime() - CurTime()) / revive.AnimTime, 0, 1)) * 0.6)
+		pl:SetPlaybackRate(0)
+		return true
+	end
+
+	local feign = pl.FeignDeath
+	if feign and feign:IsValid() then
+		if feign:GetState() == 1 then
+			pl:SetCycle(1 - math.max(feign:GetStateEndTime() - CurTime(), 0) * 0.666)
+		else
+			pl:SetCycle(math.max(feign:GetStateEndTime() - CurTime(), 0) * 0.666)
+		end
+		pl:SetPlaybackRate(0)
+		return true
+	end
+
+	local len2d = velocity:Length2D()
+	if len2d > 0.5 then
+		pl:SetPlaybackRate(math.min(len2d / maxseqgroundspeed, 3))
 	else
 		pl:SetPlaybackRate(1)
 	end
@@ -89,81 +116,33 @@ end
 
 function CLASS:DoAnimationEvent(pl, event, data)
 	if event == PLAYERANIMEVENT_ATTACK_PRIMARY then
-		pl:AnimRestartGesture(GESTURE_SLOT_ATTACK_AND_RELOAD, ACT_GMOD_GESTURE_RANGE_ZOMBIE_SPECIAL, true)
-		return ACT_INVALID
-	elseif event == PLAYERANIMEVENT_RELOAD then
-		pl:AnimRestartGesture(GESTURE_SLOT_ATTACK_AND_RELOAD, ACT_GMOD_GESTURE_TAUNT_ZOMBIE, true)
+		pl:AnimRestartGesture(GESTURE_SLOT_ATTACK_AND_RELOAD, ACT_GMOD_GESTURE_RANGE_ZOMBIE, true)
 		return ACT_INVALID
 	end
 end
 
---[[function CLASS:ScalePlayerDamage(pl, hitgroup, dmginfo)
-	-- The Wraith model doesn't have hitboxes.
-	return true
-end]]
-
-function CLASS:PlayerFootstep(pl, vFootPos, iFoot, strSoundName, fVolume, pFilter)
-	return true
+function CLASS:DoesntGiveFear(pl)
+	return pl.FeignDeath and pl.FeignDeath:IsValid()
 end
 
-function CLASS:GetAlpha(pl)
-	local wep = pl:GetActiveWeapon()
-	if not wep.IsAttacking then wep = NULL end
-
-	if wep:IsValid() and wep:IsAttacking() then
-		return 0.7
+if SERVER then
+	function CLASS:OnKilled(pl, attacker, inflictor, suicide, headshot, dmginfo)
+		pl:SetZombieClass(GAMEMODE.DefaultZombieClass)
 	end
 
-	local eyepos = EyePos()
-	local nearest = pl:WorldSpaceCenter()
-	local norm = nearest - eyepos
-	norm:Normalize()
-	local dot = EyeVector():Dot(norm)
-
-	local vis = (dot * 0.4 + pl:GetVelocity():Length() / self.Speed / 2 - eyepos:Distance(nearest) / 400) * dot
-
-	return math_Clamp(vis, MySelf:IsValid() and MySelf:Team() == TEAM_UNDEAD and 0.137 or 0, 0.7)
-end
-
-
-
-if not CLIENT then return end
-
-if CLIENT then
-	CLASS.Icon = "zombiesurvival/killicons/zombie"
+	function CLASS:AltUse(pl)
+		pl:StartFeignDeath()
+	end
 end
 
 if not CLIENT then return end
 
-CLASS.Icon = "zombiesurvival/killicons/ghoul"
-CLASS.IconColor = Color(20, 20, 250)
-
-local render_SetMaterial = render.SetMaterial
-local render_DrawSprite = render.DrawSprite
-local angle_zero = angle_zero
-local LocalToWorld = LocalToWorld
-
-local colGlow = Color(255, 0, 0)
-local matSkin = Material("Models/humans/corpse/corpse1.vtf")
-local matGlow = Material("sprites/glow04_noz")
-local vecEyeLeft = Vector(4, -4.6, -1)
-local vecEyeRight = Vector(4, -4.6, 1)
+CLASS.Icon = "zombiesurvival/killicons/zombie"
 
 function CLASS:PrePlayerDraw(pl)
-	render.ModelMaterialOverride(matSkin)
+	render.SetColorModulation(0.5, 0.9, 0.5)
 end
 
 function CLASS:PostPlayerDraw(pl)
-	render.ModelMaterialOverride()
 	render.SetColorModulation(1, 1, 1)
-
-	if pl == MySelf and not pl:ShouldDrawLocalPlayer() or pl.SpawnProtection then return end
-
-	local pos, ang = pl:GetBonePositionMatrixed(6)
-	if pos then
-		render_SetMaterial(matGlow)
-		render_DrawSprite(LocalToWorld(vecEyeLeft, angle_zero, pos, ang), 4, 4, colGlow)
-		render_DrawSprite(LocalToWorld(vecEyeRight, angle_zero, pos, ang), 4, 4, colGlow)
-	end
 end
-

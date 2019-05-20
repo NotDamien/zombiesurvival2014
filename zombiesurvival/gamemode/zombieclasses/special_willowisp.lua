@@ -60,7 +60,10 @@ function CLASS:PlayerFootstep(pl, vFootPos, iFoot, strSoundName, fVolume, pFilte
 end
 
 function CLASS:CalcMainActivity(pl, velocity)
-	return ACT_IDLE, -1
+	pl.CalcIdeal = ACT_IDLE
+	pl.CalcSeqOverride = -1
+
+	return true
 end
 
 function CLASS:UpdateAnimation(pl, velocity, maxseqgroundspeed)

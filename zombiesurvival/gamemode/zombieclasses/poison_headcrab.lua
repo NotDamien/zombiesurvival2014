@@ -10,8 +10,8 @@ CLASS.Threshold = 0.6
 
 CLASS.SWEP = "weapon_zs_poisonheadcrab"
 
-CLASS.Health = 75
-CLASS.Speed = 170
+CLASS.Health = 70
+CLASS.Speed = 145
 CLASS.JumpPower = 100
 
 CLASS.NoFallDamage = true
@@ -19,12 +19,8 @@ CLASS.NoFallSlowdown = true
 
 CLASS.IsHeadcrab = true
 
-CLASS.Points = 3
-CLASS.ZTraits = {
-	["25hlth"] = {safename = "+25% Health", cost = 200},
-	["3spit"] = {safename = "Triple Spit", cost = 350, desc = "Spit 3 times in rapid succession"},
-	["qleap"] = {safename = "Quick Leap", cost = 150, desc = "Shortens leap time"}
-}
+CLASS.Points = 4
+
 CLASS.Hull = {Vector(-12, -12, 0), Vector(12, 12, 18.1)}
 CLASS.HullDuck = {Vector(-12, -12, 0), Vector(12, 12, 18.1)}
 CLASS.ViewOffset = Vector(0, 0, 10)
@@ -83,23 +79,25 @@ function CLASS:CalcMainActivity(pl, velocity)
 	local wep = pl:GetActiveWeapon()
 	if wep:IsValid() then
 		if wep.ShouldPlayLeapAnimation and wep:ShouldPlayLeapAnimation() then
-			return 1, 7
-		end
-
-		if wep.IsGoingToSpit and wep:IsGoingToSpit() then
-			return 1, 2
+			pl.CalcSeqOverride = 7
+			return true
+		elseif wep.IsGoingToSpit and wep:IsGoingToSpit() then
+			pl.CalcSeqOverride = 2
+			return true
 		end
 	end
 
 	if pl:OnGround() then
-		if velocity:Length2DSqr() > 1 then
-			return ACT_RUN, -1
+		if velocity:Length2D() > 0.5 then
+			pl.CalcIdeal = ACT_RUN
+		else
+			pl.CalcSeqOverride = 4
 		end
-
-		return 1, 4
+	else
+		pl.CalcSeqOverride = 6
 	end
 
-	return 1, 6
+	return true
 end
 
 function CLASS:UpdateAnimation(pl, velocity, maxseqgroundspeed)

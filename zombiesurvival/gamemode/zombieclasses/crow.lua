@@ -54,21 +54,19 @@ function CLASS:CalcMainActivity(pl, velocity)
 	if pl:OnGround() then
 		local wep = pl:GetActiveWeapon()
 		if wep:IsValid() and wep.IsPecking and wep:IsPecking() then
-			return 1, 5
+			pl.CalcSeqOverride = 5
+		elseif velocity:Length2D() > 0.5 then
+			pl.CalcIdeal = ACT_RUN
+		else
+			pl.CalcIdeal = ACT_IDLE
 		end
-
-		if velocity:Length2DSqr() > 1 then
-			return ACT_RUN, -1
-		end
-
-		return ACT_IDLE, -1
+	elseif velocity:Length() > 350 then
+		pl.CalcIdeal = ACT_FLY
+	else
+		pl.CalcSeqOverride = 7
 	end
 
-	if velocity:LengthSqr() > 122500 then --350^2
-		return ACT_FLY, -1
-	end
-
-	return 1, 7
+	return true
 end
 
 function CLASS:UpdateAnimation(pl, velocity, maxseqgroundspeed)
@@ -117,7 +115,7 @@ function CLASS:OnKilled(pl, attacker, inflictor, suicide, headshot, dmginfo)
 	if attacker:IsPlayer() and attacker ~= pl then
 		if attacker:Team() == TEAM_HUMAN then
 			attacker.CrowKills = attacker.CrowKills + 1
-		elseif attacker:Team() == TEAM_UNDEAD and attacker:GetZombieClassTable().Name == "Crow" then
+		elseif attacker:GetZombieClassTable().Name == "Crow" then
 			attacker.CrowVsCrowKills = attacker.CrowVsCrowKills + 1
 
 			net.Start("zs_crow_kill_crow")

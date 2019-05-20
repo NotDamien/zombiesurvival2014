@@ -4,14 +4,10 @@ CLASS.Description = "description_ghoul"
 CLASS.Help = "controls_ghoul"
 
 CLASS.Wave = 0
-CLASS.Unlocked = false 
-CLASS.Disabled = true 
-CLASS.Health = 275
+CLASS.Unlocked = true
+
+CLASS.Health = 150
 CLASS.Speed = 160
-CLASS.Hidden = true 
-CLASS.ZTraits = {
-	["10spd"] = {safename = "+10% Speed", cost = 400},
-}
 
 CLASS.Points = 4
 
@@ -49,7 +45,53 @@ local ScuffSounds = {
 	"npc/zombie/foot_slide3.wav"
 }
 
-local math_ceil = math.ceil
+
+if SERVER then
+	function CLASS:AltUse(pl)
+		pl:StartFeignDeath()
+	end
+
+	local function Bomb(pl, pos, dir)
+		if not IsValid(pl) then return end
+
+		dir:RotateAroundAxis(dir:Right(), 30)
+
+		local effectdata = EffectData()
+			effectdata:SetOrigin(pos)
+			effectdata:SetNormal(dir:Forward())
+		util.Effect("fatexplosion", effectdata, true)
+
+		for i=1, 6 do -- Taken from the bloated class.
+			local ang = Angle()
+			ang:Set(dir)
+			ang:RotateAroundAxis(ang:Up(), math.Rand(-30, 30))
+			ang:RotateAroundAxis(ang:Right(), math.Rand(-30, 30))
+
+			local heading = ang:Forward()
+
+			local ent = ents.CreateLimited("projectile_poisonflesh")
+			if ent:IsValid() then
+				ent:SetPos(pos)
+				ent:SetOwner(pl)
+				ent:Spawn()
+				ent:SetTeamID(TEAM_UNDEAD)
+				local phys = ent:GetPhysicsObject()
+				if phys:IsValid() then
+					phys:Wake()
+					phys:SetVelocityInstantaneous(heading * math.Rand(120, 250))
+				end
+			end
+		end
+	end
+
+	function CLASS:OnKilled(pl, attacker, inflictor, suicide, headshot, dmginfo, assister)
+		if attacker ~= pl and not suicide then
+			local pos = pl:LocalToWorld(pl:OBBCenter())
+			local ang = pl:SyncAngles()
+			timer.Simple(0, function() Bomb(pl, pos, ang) end)
+		end
+	end
+end
 
 function CLASS:PlayerFootstep(pl, vFootPos, iFoot, strSoundName, fVolume, pFilter)
 	if mathrandom() < 0.15 then
@@ -81,29 +123,31 @@ function CLASS:CalcMainActivity(pl, velocity)
 	local feign = pl.FeignDeath
 	if feign and feign:IsValid() then
 		if feign:GetDirection() == DIR_BACK then
-			return 1, pl:LookupSequence("zombie_slump_rise_02_fast")
+			pl.CalcSeqOverride = pl:LookupSequence("zombie_slump_rise_02_fast")
+		else
+			pl.CalcIdeal = ACT_HL2MP_ZOMBIE_SLUMP_RISE
 		end
-
-		return ACT_HL2MP_ZOMBIE_SLUMP_RISE, -1
+		return true
 	end
 
 	if pl:WaterLevel() >= 3 then
-		return ACT_HL2MP_SWIM_PISTOL, -1
+		pl.CalcIdeal = ACT_HL2MP_SWIM_PISTOL
+		return true
 	end
 
-	if velocity:Length2DSqr() <= 1 then
-		if pl:Crouching() and pl:OnGround() then
-			return ACT_HL2MP_IDLE_CROUCH_ZOMBIE, -1
+	if velocity:Length2D() <= 0.5 then
+		if pl:Crouching() then
+			pl.CalcIdeal = ACT_HL2MP_IDLE_CROUCH_ZOMBIE
+		else
+			pl.CalcIdeal = ACT_HL2MP_IDLE_ZOMBIE
 		end
-
-		return ACT_HL2MP_IDLE_ZOMBIE, -1
+	elseif pl:Crouching() then
+		pl.CalcIdeal = ACT_HL2MP_WALK_CROUCH_ZOMBIE_01 - 1 + math.ceil((CurTime() / 4 + pl:EntIndex()) % 3)
+	else
+		pl.CalcIdeal = ACT_HL2MP_WALK_ZOMBIE_01 - 1 + math.ceil((CurTime() / 4 + pl:EntIndex()) % 3)
 	end
 
-	if pl:Crouching() and pl:OnGround() then
-		return ACT_HL2MP_WALK_CROUCH_ZOMBIE_01 - 1 + math_ceil((CurTime() / 3 + pl:EntIndex()) % 3), -1
-	end
-
-	return ACT_HL2MP_WALK_ZOMBIE_01 - 1 + math_ceil((CurTime() / 3 + pl:EntIndex()) % 3), -1
+	return true
 end
 
 function CLASS:UpdateAnimation(pl, velocity, maxseqgroundspeed)
@@ -154,7 +198,7 @@ end
 				ent:SetPos(damagepos + heading)
 				ent:SetOwner(pl)
 				ent:Spawn()
-
+				ent:SetTeamID(TEAM_UNDEAD)
 				local phys = ent:GetPhysicsObject()
 				if phys:IsValid() then
 					phys:Wake()

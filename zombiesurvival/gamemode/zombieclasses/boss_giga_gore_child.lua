@@ -5,14 +5,14 @@ CLASS.Help = "controls_giga_gore_child"
 
 CLASS.Wave = 0
 CLASS.Threshold = 0
-CLASS.Unlocked = false
+CLASS.Unlocked = true
 CLASS.Hidden = true
-CLASS.Boss = false
+CLASS.Boss = true
 
-CLASS.Health = 3000
-CLASS.Speed = 190
+CLASS.Health = 4500
+CLASS.Speed = 170
 
-CLASS.Points = 70
+CLASS.Points = 100
 
 CLASS.CanTaunt = true
 
@@ -68,11 +68,11 @@ function CLASS:PlayerFootstep(pl, vFootPos, iFoot, strSoundName, fVolume, pFilte
 		pl:EmitSound(StepRightSounds[mathrandom(#StepRightSounds)], 77, 50)
 		pl:EmitSound("physics/concrete/concrete_break3.wav", 77, 70)
 	end
-	--[[
+
 	if EyePos():Distance(vFootPos) <= 300 then
 		util.ScreenShake(vFootPos, 5, 5, 1, 300)
 	end
-	--]]
+
 	return true
 end
 
@@ -191,5 +191,3 @@ if not CLIENT then return end
 function CLASS:ShouldDrawLocalPlayer()
 	return true
 end
-
-CLASS.Icon = "zombiesurvival/killicons/giga"

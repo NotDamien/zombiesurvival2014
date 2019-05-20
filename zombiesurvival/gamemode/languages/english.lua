@@ -179,6 +179,7 @@ LANGUAGE.message_beacon_24							= "Zombies are coming. Build a barricade!"
 LANGUAGE.message_beacon_25							= "Plan B here"
 
 -- Class names
+LANGUAGE.class_ancient_nightmare = "Ancient Nightmare"
 LANGUAGE.class_zombie								= "Zombie"
 LANGUAGE.class_poison_zombie						= "Poison Zombie"
 LANGUAGE.class_fast_zombie							= "Fast Zombie"

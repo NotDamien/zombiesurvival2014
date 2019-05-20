@@ -9,8 +9,8 @@ CLASS.Unlocked = true
 CLASS.Hidden = true
 CLASS.Boss = true
 
-CLASS.Health = 6000
-CLASS.Speed = 160
+CLASS.Health = 3000
+CLASS.Speed = 120
 
 CLASS.FearPerInstance = 1
 
@@ -21,11 +21,6 @@ CLASS.Points = 70
 CLASS.SWEP = "weapon_zs_ticklemonster"
 
 CLASS.Model = Model("models/player/zombie_fast.mdl")
-function CLASS:ProcessDamage(pl, dmginfo)
-	if dmginfo:GetInflictor().IsMelee then
-		dmginfo:SetDamage(dmginfo:GetDamage() / 4)
-	end
-end
 
 CLASS.VoicePitch = 0.8
 
@@ -57,7 +52,6 @@ local ScuffSounds = {
 	"npc/zombie/foot_slide2.wav",
 	"npc/zombie/foot_slide3.wav"
 }
-local math_ceil = math.ceil
 function CLASS:PlayerFootstep(pl, vFootPos, iFoot, strSoundName, fVolume, pFilter)
 	if mathrandom() < 0.15 then
 		pl:EmitSound(ScuffSounds[mathrandom(#ScuffSounds)], 70)
@@ -82,18 +76,18 @@ end
 
 function CLASS:CalcMainActivity(pl, velocity)
 	if pl:WaterLevel() >= 3 then
-		return ACT_HL2MP_SWIM_PISTOL, -1
-	end
-
-	if pl:Crouching() and pl:OnGround() then
-		if velocity:Length2DSqr() <= 1 then
-			return ACT_HL2MP_IDLE_CROUCH_ZOMBIE, -1
+		pl.CalcIdeal = ACT_HL2MP_SWIM_PISTOL
+	elseif pl:Crouching() then
+		if velocity:Length2D() <= 0.5 then
+			pl.CalcIdeal = ACT_HL2MP_IDLE_CROUCH_ZOMBIE
+		else
+			pl.CalcIdeal = ACT_HL2MP_WALK_CROUCH_ZOMBIE_01 - 1 + math.ceil((CurTime() / 4 + pl:EntIndex()) % 3)
 		end
-
-		return ACT_HL2MP_WALK_CROUCH_ZOMBIE_01 - 1 + math_ceil((CurTime() / 4 + pl:EntIndex()) % 3), -1
+	else
+		pl.CalcIdeal = ACT_HL2MP_RUN_ZOMBIE
 	end
 
-	return ACT_HL2MP_RUN_ZOMBIE, -1
+	return true
 end
 
 function CLASS:UpdateAnimation(pl, velocity, maxseqgroundspeed)

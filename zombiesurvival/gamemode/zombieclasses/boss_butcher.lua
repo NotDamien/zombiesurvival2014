@@ -5,18 +5,18 @@ CLASS.Help = "controls_butcher"
 
 CLASS.Wave = 0
 CLASS.Threshold = 0
-CLASS.Unlocked = true
+CLASS.Unlocked = true 
 CLASS.Hidden = true
-CLASS.Boss = false
+CLASS.Boss = true 
 
-CLASS.Health = 3100
-CLASS.Speed = 225
+CLASS.Health = 1750
+CLASS.Speed = 190
 
 CLASS.CanTaunt = true
 
 CLASS.FearPerInstance = 1
 
-CLASS.Points = 70
+CLASS.Points = 60
 
 CLASS.SWEP = "weapon_zs_butcherknifez"
 
@@ -56,15 +56,8 @@ end
 
 function CLASS:CalcMainActivity(pl, velocity)
 	if pl:WaterLevel() >= 3 then
-		return ACT_HL2MP_SWIM_MELEE, -1
-	end
-
-	if pl:Crouching() then
-		if velocity:Length2DSqr() <= 1 then
-			return ACT_HL2MP_IDLE_CROUCH_MELEE, -1
-		end
-
-		return ACT_HL2MP_WALK_CROUCH_MELEE, -1
+		pl.CalcIdeal = ACT_HL2MP_SWIM_MELEE
+		return true
 	end
 
 	local swinging = false
@@ -73,19 +66,25 @@ function CLASS:CalcMainActivity(pl, velocity)
 		swinging = true
 	end
 
-	if velocity:Length2DSqr() <= 1 then
-		if swinging then
-			return ACT_HL2MP_IDLE_MELEE, -1
+	if pl:Crouching() then
+		if velocity:Length2D() <= 0.5 then
+			pl.CalcIdeal = ACT_HL2MP_IDLE_CROUCH_MELEE
+		else
+			pl.CalcIdeal = ACT_HL2MP_WALK_CROUCH_MELEE
 		end
-
-		return ACT_HL2MP_RUN_ZOMBIE, -1
+	elseif velocity:Length2D() <= 0.5 then
+		if swinging then
+			pl.CalcIdeal = ACT_HL2MP_IDLE_MELEE
+		else
+			pl.CalcIdeal = ACT_HL2MP_RUN_ZOMBIE
+		end
+	elseif swinging then
+		pl.CalcIdeal = ACT_HL2MP_RUN_MELEE
+	else
+		pl.CalcIdeal = ACT_HL2MP_RUN_ZOMBIE
 	end
 
-	if swinging then
-		return ACT_HL2MP_RUN_MELEE, -1
-	end
-
-	return ACT_HL2MP_RUN_ZOMBIE, -1
+	return true
 end
 
 function CLASS:UpdateAnimation(pl, velocity, maxseqgroundspeed)

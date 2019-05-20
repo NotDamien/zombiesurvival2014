@@ -8,95 +8,148 @@ CLASS.Unlocked = true
 CLASS.IsDefault = true
 CLASS.Order = 0
 
-CLASS.Health = 450
-CLASS.Speed = 140
-CLASS.Revives = false 
+CLASS.Health = 300
+CLASS.Speed = 150
+CLASS.Revives = true
 
 CLASS.CanTaunt = true
 
-CLASS.Points = 6
+CLASS.Points = 6 -- from 5
 
 CLASS.SWEP = "weapon_zs_zombie"
 
 CLASS.Model = Model("models/player/zombie_classic.mdl")
+
 CLASS.PainSounds = {"npc/zombie/zombie_pain1.wav", "npc/zombie/zombie_pain2.wav", "npc/zombie/zombie_pain3.wav", "npc/zombie/zombie_pain4.wav", "npc/zombie/zombie_pain5.wav", "npc/zombie/zombie_pain6.wav"}
 CLASS.DeathSounds = {"npc/zombie/zombie_die1.wav", "npc/zombie/zombie_die2.wav", "npc/zombie/zombie_die3.wav"}
 
 CLASS.VoicePitch = 0.65
 
-if SERVER then
-    function CLASS:OnSpawned(pl)
-        if pl:IsBot() then
-            if pl:GetZombieClassTable().Name == "Zombie" then
-                pl:SetBodygroup( 1, 1 )
-            end
-        end
-    end
+CLASS.CanFeignDeath = true
 
-    function CLASS:OnKilled(pl, attacker, inflictor, suicide, headshot, dmginfo, assister)
-        if pl:IsBot() then
-            if pl:GetZombieClassTable().Name == "Zombie" then
-                pl:SetBodygroup( 1, 0 )
-            end
-        end
-    end
+function CLASS:KnockedDown(pl, status, exists)
+	pl:AnimResetGestureSlot(GESTURE_SLOT_ATTACK_AND_RELOAD)
 end
 
-local math_min = math.min
-local math_Clamp = math.Clamp
-local IN_SPEED = IN_SPEED
-local ACT_HL2MP_SWIM_PISTOL = ACT_HL2MP_SWIM_PISTOL
-local ACT_HL2MP_IDLE_CROUCH_FIST = ACT_HL2MP_IDLE_CROUCH_FIST
-local ACT_HL2MP_IDLE_KNIFE = ACT_HL2MP_IDLE_KNIFE
-local ACT_HL2MP_WALK_CROUCH_KNIFE = ACT_HL2MP_WALK_CROUCH_KNIFE
-local ACT_HL2MP_WALK_KNIFE = ACT_HL2MP_WALK_KNIFE
-local ACT_HL2MP_RUN_KNIFE = ACT_HL2MP_RUN_KNIFE
-local PLAYERANIMEVENT_ATTACK_PRIMARY = PLAYERANIMEVENT_ATTACK_PRIMARY
-local GESTURE_SLOT_ATTACK_AND_RELOAD = GESTURE_SLOT_ATTACK_AND_RELOAD
-local ACT_GMOD_GESTURE_RANGE_ZOMBIE_SPECIAL = ACT_GMOD_GESTURE_RANGE_ZOMBIE_SPECIAL
-local ACT_GMOD_GESTURE_TAUNT_ZOMBIE = ACT_GMOD_GESTURE_TAUNT_ZOMBIE
-local ACT_INVALID = ACT_INVALID
-
-function CLASS:Move(pl, move)
-	if pl:KeyDown(IN_SPEED) then
-		move:SetMaxSpeed(40)
-		move:SetMaxClientSpeed(40)
+local mathrandom = math.random
+local StepSounds = {
+	"npc/zombie/foot1.wav",
+	"npc/zombie/foot2.wav",
+	"npc/zombie/foot3.wav"
+}
+local ScuffSounds = {
+	"npc/zombie/foot_slide1.wav",
+	"npc/zombie/foot_slide2.wav",
+	"npc/zombie/foot_slide3.wav"
+}
+function CLASS:PlayerFootstep(pl, vFootPos, iFoot, strSoundName, fVolume, pFilter)
+	if mathrandom() < 0.15 then
+		pl:EmitSound(ScuffSounds[mathrandom(#ScuffSounds)], 70)
+	else
+		pl:EmitSound(StepSounds[mathrandom(#StepSounds)], 70)
 	end
+
+	return true
+end
+
+-- Sound scripts are LITERALLY 100x slower than raw file input. Test it yourself if you don't believe me.
+--[[function CLASS:PlayerFootstep(pl, vFootPos, iFoot, strSoundName, fVolume, pFilter)
+	if iFoot == 0 then
+		if mathrandom() < 0.15 then
+			pl:EmitSound("Zombie.ScuffLeft")
+		else
+			pl:EmitSound("Zombie.FootstepLeft")
+		end
+	else
+		if mathrandom() < 0.15 then
+			pl:EmitSound("Zombie.ScuffRight")
+		else
+			pl:EmitSound("Zombie.FootstepRight")
+		end
+	end
+
+	return true
+end]]
+
+function CLASS:PlayerStepSoundTime(pl, iType, bWalking)
+	if iType == STEPSOUNDTIME_NORMAL or iType == STEPSOUNDTIME_WATER_FOOT then
+		return 625 - pl:GetVelocity():Length()
+	elseif iType == STEPSOUNDTIME_ON_LADDER then
+		return 600
+	elseif iType == STEPSOUNDTIME_WATER_KNEE then
+		return 750
+	end
+
+	return 450
 end
 
 function CLASS:CalcMainActivity(pl, velocity)
-	if pl:WaterLevel() >= 3 then
-		return ACT_HL2MP_SWIM_PISTOL, -1
+	local revive = pl.Revive
+	if revive and revive:IsValid() then
+		pl.CalcIdeal = ACT_HL2MP_ZOMBIE_SLUMP_RISE
+		return true
 	end
 
-	if pl:WaterLevel() >= 3 then
-		return ACT_HL2MP_SWIM_PISTOL, -1
-	end
-
-	local len = velocity:Length2DSqr()
-	if len <= 1 then
-		if pl:Crouching() and pl:OnGround() then
-			return ACT_HL2MP_IDLE_CROUCH_FIST, -1
+	local feign = pl.FeignDeath
+	if feign and feign:IsValid() then
+		if feign:GetDirection() == DIR_BACK then
+			pl.CalcSeqOverride = pl:LookupSequence("zombie_slump_rise_02_fast")
+		else
+			pl.CalcIdeal = ACT_HL2MP_ZOMBIE_SLUMP_RISE
 		end
-
-		return ACT_HL2MP_IDLE_KNIFE, -1
+		return true
 	end
 
-	if pl:Crouching() and pl:OnGround() then
-		return ACT_HL2MP_WALK_CROUCH_KNIFE, -1
+	if pl:WaterLevel() >= 3 then
+		pl.CalcIdeal = ACT_HL2MP_SWIM_PISTOL
+		return true
 	end
 
-	if len < 2800 then
-		return ACT_HL2MP_WALK_KNIFE, -1
+	local wep = pl:GetActiveWeapon()
+	if wep:IsValid() and wep.IsMoaning and wep:IsMoaning() then
+		pl.CalcIdeal = ACT_HL2MP_RUN_ZOMBIE
+	elseif velocity:Length2D() <= 0.5 then
+		if pl:Crouching() then
+			pl.CalcIdeal = ACT_HL2MP_IDLE_CROUCH_ZOMBIE
+		else
+			pl.CalcIdeal = ACT_HL2MP_IDLE_ZOMBIE
+		end
+	elseif pl:Crouching() then
+		pl.CalcIdeal = ACT_HL2MP_WALK_CROUCH_ZOMBIE_01 - 1 + math.ceil((CurTime() / 4 + pl:EntIndex()) % 3)
+	else
+		pl.CalcIdeal = ACT_HL2MP_WALK_ZOMBIE_01 - 1 + math.ceil((CurTime() / 4 + pl:EntIndex()) % 3)
 	end
 
-	return ACT_HL2MP_RUN_KNIFE, -1
+	return true
 end
 
 function CLASS:UpdateAnimation(pl, velocity, maxseqgroundspeed)
-	local len2d = velocity:Length()
-	if len2d > 1 then
-		pl:SetPlaybackRate(math_min(len2d / maxseqgroundspeed, 3))
+	local revive = pl.Revive
+	if revive and revive:IsValid() then
+		pl:SetCycle(0.4 + (1 - math.Clamp((revive:GetReviveTime() - CurTime()) / revive.AnimTime, 0, 1)) * 0.6)
+		pl:SetPlaybackRate(0)
+		return true
+	end
+
+	local feign = pl.FeignDeath
+	if feign and feign:IsValid() then
+		if feign:GetState() == 1 then
+			pl:SetCycle(1 - math.max(feign:GetStateEndTime() - CurTime(), 0) * 0.666)
+		else
+			pl:SetCycle(math.max(feign:GetStateEndTime() - CurTime(), 0) * 0.666)
+		end
+		pl:SetPlaybackRate(0)
+		return true
+	end
+
+	local len2d = velocity:Length2D()
+	if len2d > 0.5 then
+		local wep = pl:GetActiveWeapon()
+		if wep:IsValid() and wep.IsMoaning and wep:IsMoaning() then
+			pl:SetPlaybackRate(math.min(len2d / maxseqgroundspeed, 3))
+		else
+			pl:SetPlaybackRate(math.min(len2d / maxseqgroundspeed * 0.666, 3))
+		end
 	else
 		pl:SetPlaybackRate(1)
 	end
@@ -106,48 +159,81 @@ end
 
 function CLASS:DoAnimationEvent(pl, event, data)
 	if event == PLAYERANIMEVENT_ATTACK_PRIMARY then
-		pl:AnimRestartGesture(GESTURE_SLOT_ATTACK_AND_RELOAD, ACT_GMOD_GESTURE_RANGE_ZOMBIE_SPECIAL, true)
-		return ACT_INVALID
-	elseif event == PLAYERANIMEVENT_RELOAD then
-		pl:AnimRestartGesture(GESTURE_SLOT_ATTACK_AND_RELOAD, ACT_GMOD_GESTURE_TAUNT_ZOMBIE, true)
+		pl:AnimRestartGesture(GESTURE_SLOT_ATTACK_AND_RELOAD, ACT_GMOD_GESTURE_RANGE_ZOMBIE, true)
 		return ACT_INVALID
 	end
 end
 
---[[function CLASS:ScalePlayerDamage(pl, hitgroup, dmginfo)
-	-- The Wraith model doesn't have hitboxes.
-	return true
-end]]
-
-function CLASS:PlayerFootstep(pl, vFootPos, iFoot, strSoundName, fVolume, pFilter)
-	return true
+function CLASS:DoesntGiveFear(pl)
+	return pl.FeignDeath and pl.FeignDeath:IsValid()
 end
 
-function CLASS:GetAlpha(pl)
-	local wep = pl:GetActiveWeapon()
-	if not wep.IsAttacking then wep = NULL end
-
-	if wep:IsValid() and wep:IsAttacking() then
-		return 0.7
+if SERVER then
+	function CLASS:AltUse(pl)
+		pl:StartFeignDeath()
 	end
 
-	local eyepos = EyePos()
-	local nearest = pl:WorldSpaceCenter()
-	local norm = nearest - eyepos
-	norm:Normalize()
-	local dot = EyeVector():Dot(norm)
+	function CLASS:ProcessDamage(pl, dmginfo)
+		local attacker, inflictor, damage = dmginfo:GetAttacker(), dmginfo:GetInflictor(), dmginfo:GetDamage()
+		if attacker ~= pl and damage >= pl:Health() and pl:LastHitGroup() ~= HITGROUP_HEAD and damage < 70 and not inflictor.IsMelee and not inflictor.NoReviveFromKills and dmginfo:GetDamageType() ~= DMG_BLAST and dmginfo:GetDamageType() ~= DMG_BURN and dmginfo:GetDamageType() ~= DMG_CRUSH and (pl.NextZombieRevive or 0) <= CurTime() and pl:LastHitGroup() ~= HITGROUP_LEFTLEG and pl:LastHitGroup() ~= HITGROUP_RIGHTLEG then
+			pl.NextZombieRevive = CurTime() + 3
 
-	local vis = (dot * 0.4 + pl:GetVelocity():Length() / self.Speed / 2 - eyepos:Distance(nearest) / 400) * dot
+			dmginfo:SetDamage(0)
+			pl:SetHealth(10)
 
-	return math_Clamp(vis, MySelf:IsValid() and MySelf:Team() == TEAM_UNDEAD and 0.137 or 0, 0.7)
+			local status = pl:GiveStatus("revive_slump")
+			if status then
+				status:SetReviveTime(CurTime() + 2.25)
+			end
+
+			return true
+		end
+	end
+
+	function CLASS:ReviveCallback(pl, attacker, dmginfo)
+		if not pl.Revive and not dmginfo:GetInflictor().IsMelee and not dmginfo:GetInflictor().NoReviveFromKills and dmginfo:GetDamageType() ~= DMG_BLAST and dmginfo:GetDamageType() ~= DMG_BURN and (pl:LastHitGroup() == HITGROUP_LEFTLEG or pl:LastHitGroup() == HITGROUP_RIGHTLEG) then
+			local classtable = math.random(1) == 3 and GAMEMODE.ZombieClasses["Zombie Legs"] or GAMEMODE.ZombieClasses["Zombie Torso"]
+			if classtable then
+				pl:RemoveStatus("overridemodel", false, true)
+				local deathclass = pl.DeathClass or pl:GetZombieClass()
+				pl:SetZombieClass(classtable.Index)
+				pl:DoHulls(classtable.Index, TEAM_UNDEAD)
+				pl.DeathClass = deathclass
+
+				pl:EmitSound("physics/flesh/flesh_bloody_break.wav", 100, 75)
+
+				if classtable == GAMEMODE.ZombieClasses["Zombie Torso"] then
+					local ent = ents.Create("prop_dynamic_override")
+					if ent:IsValid() then
+						ent:SetModel(Model("models/Zombie/Classic_legs.mdl"))
+						ent:SetPos(pl:GetPos())
+						ent:SetAngles(pl:GetAngles())
+						ent:Spawn()
+						ent:Fire("kill", "", 1.5)
+					end
+				end
+
+				pl:Gib()
+				pl.Gibbed = nil
+
+				timer.Simple(0, function()
+					if pl:IsValid() then
+						pl:SecondWind()
+					end
+				end)
+
+				return true
+			end
+		end
+
+		return false
+	end
+
+	function CLASS:OnSecondWind(pl)
+		pl:EmitSound("npc/zombie/zombie_voice_idle"..math.random(1, 14)..".wav", 100, 85)
+	end
 end
-
-
-
-if not CLIENT then return end
 
 if CLIENT then
 	CLASS.Icon = "zombiesurvival/killicons/zombie"
 end
-
-

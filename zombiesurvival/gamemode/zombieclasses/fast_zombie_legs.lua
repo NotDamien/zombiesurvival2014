@@ -120,14 +120,14 @@ end
 function CLASS:CalcMainActivity(pl, velocity)
 	local feign = pl.FeignDeath
 	if feign and feign:IsValid() then
-		return 1, pl:LookupSequence("zombie_slump_rise_02_fast")
+		pl.CalcSeqOverride = pl:LookupSequence("zombie_slump_rise_02_fast")
+	elseif velocity:Length2D() <= 0.5 then
+		pl.CalcIdeal = ACT_HL2MP_IDLE_ZOMBIE
+	else
+		pl.CalcIdeal = ACT_HL2MP_RUN_ZOMBIE
 	end
 
-	if velocity:Length2DSqr() <= 1 then
-		return ACT_HL2MP_IDLE_ZOMBIE, -1
-	end
-
-	return ACT_HL2MP_RUN_ZOMBIE, -1
+	return true
 end
 
 function CLASS:UpdateAnimation(pl, velocity, maxseqgroundspeed)
